@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -30,7 +32,6 @@ import org.dbunit.dataset.ITable;
 import org.dbunit.dataset.ITableMetaData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 import de.gmorling.scriptabledataset.handlers.ScriptInvocationHandler;
 import de.gmorling.scriptabledataset.handlers.StandardHandlerConfig;
@@ -43,7 +44,8 @@ import de.gmorling.scriptabledataset.handlers.StandardHandlerConfig;
  */
 public class ScriptableTable implements ITable {
 
-	private final Logger logger = LoggerFactory.getLogger(ScriptableTable.class);
+	private static final ConcurrentMap<String, ScriptEngine> enginesByLanguage = new ConcurrentHashMap<String, ScriptEngine>(); 
+	private static final Logger logger = LoggerFactory.getLogger(ScriptableTable.class);
 
 	private ITable wrapped;
 
@@ -69,7 +71,7 @@ public class ScriptableTable implements ITable {
 		// load the engines
 		for (ScriptableDataSetConfig oneConfig : configurations) {
 
-			ScriptEngine engine = manager.getEngineByName(oneConfig.getLanguageName());
+			ScriptEngine engine = getScriptEngine(manager, oneConfig);
 
 			if (engine != null) {
 				enginesByPrefix.put(oneConfig.getPrefix(), engine);
@@ -88,6 +90,16 @@ public class ScriptableTable implements ITable {
 				throw new RuntimeException("No scripting engine found for language \"" + oneConfig.getLanguageName() + "\".");
 			}
 		}
+	}
+
+	private static ScriptEngine getScriptEngine(ScriptEngineManager manager, ScriptableDataSetConfig oneConfig) {
+	    String lang = oneConfig.getLanguageName();
+
+	    if (!enginesByLanguage.containsKey(lang)) {
+			enginesByLanguage.put(lang, manager.getEngineByName(lang));
+	    }
+
+	    return enginesByLanguage.get(lang);
 	}
 
 	/**
